@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAAC Digital Manual Dashboard</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Quill Rich Text Editor -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    <style>
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Sidebar active states */
+        .sidebar-item { transition: all 0.2s ease; }
+        .sidebar-item.active {
+            background-color: #eef2ff;
+            color: #4338ca;
+            border-left-color: #4338ca;
+            font-weight: 500;
+        }
+
+        /* Print Styles for PDF Generation */
+        @media print {
+            body { background: white; overflow: visible !important; height: auto !important; }
+            nav, aside, #crudModal, #settingsModal, .no-print { display: none !important; }
+            main { flex: 1; overflow: visible !important; padding: 0 !important; width: 100% !important; max-width: none !important; margin: 0 !important; }
+            .shadow-sm { box-shadow: none !important; }
+            .border-slate-200 { border-color: #e2e8f0 !important; }
+            * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        }
+
+        /* Quill Editor Content Styling for Display */
+        .quill-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.5em; }
+        .quill-content ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 0.5em; }
+        .quill-content p { margin-bottom: 0.5em; }
+        .quill-content p:last-child { margin-bottom: 0; }
+        .quill-content a { color: #4338ca; text-decoration: underline; }
+        .quill-content strong { font-weight: 700; color: #1e293b; }
+        
+        /* Modal Override for Quill Toolbar */
+        .ql-toolbar.ql-snow { border-color: #cbd5e1 !important; border-top-left-radius: 0.375rem; border-top-right-radius: 0.375rem; background: #f8fafc; }
+        .ql-container.ql-snow { border-color: #cbd5e1 !important; border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased h-screen flex flex-col overflow-hidden">
+
+    <!-- Top Navbar -->
+    <nav class="bg-indigo-900 text-white shadow-md z-50 shrink-0">
+        <div class="px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="book-open-check" class="w-6 h-6 text-indigo-300"></i>
+                    <span class="font-bold text-lg tracking-tight">NAAC Digital Manual</span>
+                </div>
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                    <label for="categorySelect" class="text-sm font-medium text-indigo-200 hidden md:block">Category:</label>
+                    <select id="categorySelect" class="appearance-none bg-indigo-800 border border-indigo-700 text-white py-1.5 pl-3 pr-8 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 text-sm cursor-pointer transition-colors hover:bg-indigo-700 max-w-[120px] sm:max-w-xs truncate">
+                        <!-- Options populated by JS -->
+                    </select>
+                    
+                    <!-- Category CRUD Actions -->
+                    <div id="categoryActions" class="flex items-center bg-indigo-800 rounded-md shadow-sm border border-indigo-700 overflow-hidden ml-1">
+                        <button onclick="openModal('category', 'add')" class="p-1.5 text-indigo-200 hover:text-white hover:bg-indigo-700 transition-colors" title="Add Category">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                        </button>
+                        <div class="w-px h-4 bg-indigo-700"></div>
+                        <button onclick="editCurrentCategory()" class="p-1.5 text-indigo-200 hover:text-white hover:bg-indigo-700 transition-colors" title="Edit Category">
+                            <i data-lucide="edit-2" class="w-4 h-4"></i>
+                        </button>
+                        <div class="w-px h-4 bg-indigo-700"></div>
+                        <button onclick="deleteCurrentCategory()" class="p-1.5 text-indigo-200 hover:text-red-400 hover:bg-indigo-700 transition-colors" title="Delete Category">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <div class="w-px h-6 bg-indigo-700 mx-1 hidden sm:block"></div>
+
+                    <!-- Print / Export PDF -->
+                    <button onclick="window.print()" class="p-1.5 text-indigo-200 hover:text-white hover:bg-indigo-800 rounded-md transition-colors border border-transparent hover:border-indigo-700 shadow-sm hidden sm:block" title="Print / Export PDF">
+                        <i data-lucide="printer" class="w-5 h-5"></i>
+                    </button>
+
+                    <!-- Lock / Unlock Toggle -->
+                    <button onclick="toggleLock()" id="lockBtn" class="p-1.5 text-indigo-200 hover:text-white hover:bg-indigo-800 rounded-md transition-colors border border-transparent hover:border-indigo-700 shadow-sm" title="Lock/Unlock Dashboard Edit Mode">
+                        <i data-lucide="unlock" class="w-5 h-5"></i>
+                    </button>
+
+                    <button onclick="openSettingsModal()" class="p-1.5 text-indigo-200 hover:text-white hover:bg-indigo-800 rounded-md transition-colors border border-transparent hover:border-indigo-700 shadow-sm" title="Data Management">
+                        <i data-lucide="database" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- App Container (Split View) -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- LEFT SIDEBAR: Navigation Tree -->
+        <aside class="w-80 lg:w-96 bg-white border-r border-slate-200 flex flex-col shrink-0 z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+            
+            <!-- Sidebar Header & Global Controls -->
+            <div class="p-4 border-b border-slate-100 space-y-3 bg-slate-50/50">
+                <button id="addCriteriaBtn" onclick="openModal('criteria', 'add', state.category)" class="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm font-medium flex items-center justify-center gap-2 shadow-sm transition-colors">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Add Criteria
+                </button>
+                
+                <div class="relative">
+                    <i data-lucide="search" class="absolute left-3 top-2.5 h-4 w-4 text-slate-400"></i>
+                    <input type="text" id="searchInput" placeholder="Search metrics..." class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+                </div>
+                
+                <div class="flex gap-2">
+                    <select id="typeFilter" class="w-1/2 text-xs border border-slate-300 rounded-md py-1.5 pl-2 pr-6 focus:ring-indigo-500">
+                        <option value="all">All Types</option>
+                        <option value="Qualitative">Qualitative</option>
+                        <option value="Quantitative">Quantitative</option>
+                    </select>
+                    <select id="sortOrder" class="w-1/2 text-xs border border-slate-300 rounded-md py-1.5 pl-2 pr-6 focus:ring-indigo-500">
+                        <option value="number_asc">Sort: No.</option>
+                        <option value="marks_desc">Sort: Marks High</option>
+                        <option value="marks_asc">Sort: Marks Low</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-200">
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Hierarchy</span>
+                    <div class="flex gap-3">
+                        <button onclick="expandAll()" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline">Expand All</button>
+                        <button onclick="collapseAll()" class="text-xs font-medium text-slate-500 hover:text-slate-800 hover:underline">Collapse All</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar Hierarchy Tree -->
+            <div id="sidebarTree" class="flex-1 overflow-y-auto p-3 space-y-1">
+                <!-- Tree populated by JS -->
+            </div>
+        </aside>
+
+        <!-- RIGHT MAIN CONTENT: Details View -->
+        <main class="flex-1 bg-slate-50 flex flex-col min-w-0 overflow-y-auto relative" id="mainScrollArea">
+            <div class="max-w-[1400px] mx-auto w-full p-6 lg:p-8 space-y-6" id="mainContent">
+                <!-- Main Content populated by JS -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2"><i data-lucide="database" class="w-5 h-5 text-indigo-600"></i> Data Management</h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 transition-colors bg-white rounded-full p-1 hover:bg-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-6 space-y-3">
+                <button onclick="exportJSON()" class="w-full flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-slate-700 font-medium text-sm text-left shadow-sm">
+                    <i data-lucide="download" class="w-5 h-5 text-indigo-500"></i>
+                    <div>
+                        <div class="font-bold">Backup Data (Save)</div>
+                        <div class="text-xs text-slate-500 font-normal">Download all data as a JSON file</div>
+                    </div>
+                </button>
+                <button onclick="triggerImport()" class="w-full flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-slate-700 font-medium text-sm text-left shadow-sm">
+                    <i data-lucide="upload" class="w-5 h-5 text-indigo-500"></i>
+                    <div>
+                        <div class="font-bold">Restore Data (Import)</div>
+                        <div class="text-xs text-slate-500 font-normal">Load data from a JSON file</div>
+                    </div>
+                </button>
+                <input type="file" id="importFileInput" accept=".json" class="hidden">
+                <button onclick="exportCSV()" class="w-full flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 transition-colors text-slate-700 font-medium text-sm text-left shadow-sm">
+                    <i data-lucide="file-spreadsheet" class="w-5 h-5 text-emerald-500"></i>
+                    <div>
+                        <div class="font-bold">Export to CSV</div>
+                        <div class="text-xs text-slate-500 font-normal">Download metrics for Excel</div>
+                    </div>
+                </button>
+                <div id="deleteAllBtnContainer" class="pt-3 mt-3 border-t border-slate-100">
+                    <button onclick="clearAllData()" class="w-full flex items-center gap-3 px-4 py-3 bg-white border border-red-200 rounded-lg hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-colors text-red-600 font-medium text-sm text-left shadow-sm">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        <div>
+                            <div class="font-bold">Delete All Data</div>
+                            <div class="text-xs opacity-80 font-normal">Clear the entire database</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CRUD Modal -->
+    <div id="crudModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0 bg-slate-50/50">
+                <h3 class="text-lg font-bold text-slate-900" id="modalTitle">Add Item</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition-colors bg-white rounded-full p-1 hover:bg-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="overflow-y-auto p-6">
+                <form id="crudForm" class="space-y-4">
+                    <div id="dynamicFormFields" class="space-y-4"></div>
+                    <div class="flex justify-end gap-3 pt-6 mt-6 border-t border-slate-100">
+                        <button type="button" id="cancelModalBtn" onclick="closeModal()" class="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 text-sm font-medium transition-colors">Cancel</button>
+                        <button type="submit" id="saveModalBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium transition-colors">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Type module enables modern import syntaxes for Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // --- 1. Firebase Initialization ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKWguBVw04_SFt8fD7GL1bB5MImn2XF2Q",
+            authDomain: "sphereconnect-360.firebaseapp.com",
+            projectId: "sphereconnect-360",
+            storageBucket: "sphereconnect-360.firebasestorage.app",
+            messagingSenderId: "526979565250",
+            appId: "1:526979565250:web:778cccd7e7737ba45e9d5b",
+            measurementId: "G-N8LRFWBLE5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db_firestore = getFirestore(app);
+
+        // --- 2. Data Structure ---
+        const defaultDb = {
+            categories: [
+                { id: 'cat_univ', name: 'University' },
+                { id: 'cat_auto', name: 'Autonomous College' },
+                { id: 'cat_affil', name: 'Affiliated College' }
+            ],
+            criteria: [
+                { id: 'cr_1', categoryId: 'cat_univ', number: '1', name: 'Curricular Aspects', totalMarks: 150 },
+                { id: 'cr_2', categoryId: 'cat_univ', number: '2', name: 'Teaching-Learning and Evaluation', totalMarks: 200 }
+            ],
+            keyIndicators: [
+                { id: 'ki_1_1', criteriaId: 'cr_1', number: '1.1', name: 'Curriculum Design and Development', marks: 50 },
+                { id: 'ki_1_2', criteriaId: 'cr_1', number: '1.2', name: 'Academic Flexibility', marks: 50 },
+                { id: 'ki_2_1', criteriaId: 'cr_2', number: '2.1', name: 'Student Enrollment and Profile', marks: 100 }
+            ],
+            metrics: [
+                { id: 'm_1_1_1', kiId: 'ki_1_1', number: '1.1.1', name: 'Curricula developed have relevance to local needs', description: 'Describe in 500 words.', marks: 20, type: 'Qualitative', benchmark: 'Mapped to SDGs', documentsRequired: '1. Syllabus copies\n2. BOS Minutes', instructions: 'Ensure signatures are present on all uploaded documents.' },
+                { id: 'm_1_1_2', kiId: 'ki_1_1', number: '1.1.2', name: 'Percentage of Programmes where syllabus revision was carried out', description: 'Quantitative metric over 5 years.', marks: 30, type: 'Quantitative', benchmark: '> 20% revision', documentsRequired: 'Approved revision list', instructions: 'Provide clear data points.' },
+                { id: 'm_2_1_1', kiId: 'ki_2_1', number: '2.1.1', name: 'Demand Ratio', description: 'Seat vs Application ratio.', marks: 50, type: 'Quantitative', benchmark: '1:5', documentsRequired: 'Admission register', instructions: '' },
+                { id: 'm_2_1_2', kiId: 'ki_2_1', number: '2.1.2', name: 'Institution assesses the learning levels of the students', description: 'Programs for advanced learners.', marks: 50, type: 'Qualitative', benchmark: 'Active programs', documentsRequired: 'Reports', instructions: '' }
+            ]
+        };
+
+        let db = { categories: [], criteria: [], keyIndicators: [], metrics: [] };
+        
+        // --- 3. State Management ---
+        let state = {
+            category: null,
+            searchQuery: '',
+            filterType: 'all',
+            sortOrder: 'number_asc',
+            expandedCriteria: new Set(),
+            selectedKI: 'dashboard',
+            isLocked: false 
+        };
+
+        let modalState = { isOpen: false, type: null, action: null, parentId: null, entityId: null };
+        let quillInstances = {}; 
+
+        // --- 4. Firestore Live Sync ---
+        let isAppInitialized = false;
+        // Setting up a distinct isolated collection for your manual data to prevent conflicts
+        const docRef = doc(db_firestore, "naac_manual", "main");
+
+        onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                db = docSnap.data();
+                // Ensure array structures exist to prevent errors on empty saves
+                db.categories = db.categories || [];
+                db.criteria = db.criteria || [];
+                db.keyIndicators = db.keyIndicators || [];
+                db.metrics = db.metrics || [];
+            } else {
+                // First-time setup - seed database
+                db = defaultDb;
+                saveDatabase();
+            }
+
+            if (!isAppInitialized) {
+                isAppInitialized = true;
+                if (db.categories.length > 0) {
+                    state.category = db.categories[0].id;
+                    state.expandedCriteria = new Set(db.criteria.map(c => c.id));
+                }
+                init();
+            } else {
+                // Reflect live cloud updates
+                updateCategoryDropdown();
+                render();
+            }
+        });
+
+        // Trigger a write to cloud database
+        function saveDatabase() {
+            setDoc(docRef, db).catch(e => console.error("Error saving to cloud:", e));
+        }
+
+        // --- 5. DOM Elements ---
+        const els = {
+            categorySelect: document.getElementById('categorySelect'),
+            searchInput: document.getElementById('searchInput'),
+            typeFilter: document.getElementById('typeFilter'),
+            sortOrder: document.getElementById('sortOrder'),
+            sidebarTree: document.getElementById('sidebarTree'),
+            mainContent: document.getElementById('mainContent'),
+            mainScrollArea: document.getElementById('mainScrollArea')
+        };
+
+        // --- 6. Initialization & Event Listeners ---
+        function init() {
+            updateCategoryDropdown();
+            
+            els.categorySelect.addEventListener('change', (e) => {
+                state.category = e.target.value;
+                autoSelectFirstAvailable();
+                render();
+            });
+            
+            els.searchInput.addEventListener('input', (e) => {
+                state.searchQuery = e.target.value.toLowerCase();
+                if(state.searchQuery.length > 0) expandAll();
+                render();
+            });
+
+            els.typeFilter.addEventListener('change', (e) => { state.filterType = e.target.value; render(); });
+            els.sortOrder.addEventListener('change', (e) => { state.sortOrder = e.target.value; render(); });
+
+            lucide.createIcons();
+            render();
+        }
+
+        function toggleLock() {
+            state.isLocked = !state.isLocked;
+            render();
+        }
+
+        function expandAll() {
+            db.criteria.forEach(c => state.expandedCriteria.add(c.id));
+            render();
+        }
+
+        function collapseAll() {
+            state.expandedCriteria.clear();
+            render();
+        }
+
+        function toggleCriteria(id) {
+            if (state.expandedCriteria.has(id)) state.expandedCriteria.delete(id);
+            else state.expandedCriteria.add(id);
+            render();
+        }
+
+        function selectKI(id) {
+            state.selectedKI = id;
+            els.mainScrollArea.scrollTop = 0; 
+            render();
+        }
+
+        function autoSelectFirstAvailable() {
+            state.selectedKI = 'dashboard';
+        }
+
+        // --- 7. Data Processing ---
+        function getProcessedData() {
+            let currentCriteria = db.criteria.filter(c => c.categoryId === state.category);
+            let currentKIs = db.keyIndicators.filter(ki => currentCriteria.some(c => c.id === ki.criteriaId));
+            let currentMetrics = db.metrics.filter(m => currentKIs.some(ki => ki.id === m.kiId));
+
+            let filteredMetrics = currentMetrics.filter(m => {
+                const matchesSearch = state.searchQuery === '' || m.name.toLowerCase().includes(state.searchQuery) || m.number.includes(state.searchQuery) || m.description.toLowerCase().includes(state.searchQuery);
+                const matchesType = state.filterType === 'all' || m.type === state.filterType;
+                return matchesSearch && matchesType;
+            });
+
+            filteredMetrics.sort((a, b) => {
+                if (state.sortOrder === 'number_asc') {
+                    const aParts = a.number.split('.').map(Number), bParts = b.number.split('.').map(Number);
+                    for(let i=0; i<Math.max(aParts.length, bParts.length); i++) {
+                        if((aParts[i]||0) !== (bParts[i]||0)) return (aParts[i]||0) - (bParts[i]||0);
+                    } return 0;
+                } else if (state.sortOrder === 'marks_desc') return b.marks - a.marks;
+                else if (state.sortOrder === 'marks_asc') return a.marks - b.marks;
+            });
+
+            let filteredKIs = currentKIs;
+            let filteredCriteria = currentCriteria;
+
+            if (state.searchQuery !== '' || state.filterType !== 'all') {
+                let validKiIds = new Set(filteredMetrics.map(m => m.kiId));
+                filteredKIs = currentKIs.filter(ki => validKiIds.has(ki.id));
+                let validCrIds = new Set(filteredKIs.map(ki => ki.criteriaId));
+                filteredCriteria = currentCriteria.filter(c => validCrIds.has(c.id));
+            }
+
+            return { criteria: filteredCriteria, keyIndicators: filteredKIs, metrics: filteredMetrics, rawKIs: currentKIs, rawMetrics: currentMetrics };
+        }
+
+        // --- Category Utilities ---
+        function updateCategoryDropdown() {
+            els.categorySelect.innerHTML = db.categories.map(c => `<option value="${c.id}" ${c.id === state.category ? 'selected' : ''}>${c.name}</option>`).join('');
+            if (db.categories.length === 0) {
+                els.categorySelect.innerHTML = '<option value="">No Categories</option>';
+            }
+        }
+
+        function editCurrentCategory() {
+            if (state.isLocked) return alert("Dashboard is locked.");
+            if (!state.category) return alert("No category to edit.");
+            openModal('category', 'edit', null, state.category);
+        }
+
+        function deleteCurrentCategory() {
+            if (state.isLocked) return alert("Dashboard is locked.");
+            if (!state.category) return alert("No category to delete.");
+            deleteEntity('category', state.category);
+        }
+
+        // --- 8. Rendering Engine ---
+        function render() {
+            const catActions = document.getElementById('categoryActions');
+            const addCrBtn = document.getElementById('addCriteriaBtn');
+            const deleteAllBtnContainer = document.getElementById('deleteAllBtnContainer');
+            const lockBtn = document.getElementById('lockBtn');
+
+            if(catActions) catActions.style.display = state.isLocked ? 'none' : 'flex';
+            if(addCrBtn) addCrBtn.style.display = state.isLocked ? 'none' : 'flex';
+            if(deleteAllBtnContainer) deleteAllBtnContainer.style.display = state.isLocked ? 'none' : 'block';
+
+            if(lockBtn) {
+                lockBtn.innerHTML = state.isLocked 
+                    ? '<i data-lucide="lock" class="w-5 h-5 text-amber-400"></i>' 
+                    : '<i data-lucide="unlock" class="w-5 h-5"></i>';
+            }
+
+            if (!state.category) {
+                els.sidebarTree.innerHTML = `<div class="p-4 text-sm text-slate-500 text-center italic">No categories found.</div>`;
+                renderEmptyState('No Categories Available', 'Add a new category using the + button in the top navigation bar to start building your manual.', 'folder-plus');
+                lucide.createIcons();
+                return;
+            }
+
+            const data = getProcessedData();
+            
+            let sidebarHTML = `
+                <div class="mb-4 pb-2 border-b border-slate-200">
+                    <div class="sidebar-item flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer ${state.selectedKI === 'dashboard' ? 'active' : 'text-slate-700 hover:bg-slate-100'}" onclick="selectKI('dashboard')">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                        <span class="font-bold">Dashboard Overview</span>
+                    </div>
+                </div>
+            `;
+
+            if (data.criteria.length === 0) {
+                sidebarHTML += `<div class="p-4 text-sm text-slate-500 text-center italic">No criteria found.</div>`;
+            } else {
+                sidebarHTML += data.criteria.map(cr => renderSidebarCriteria(cr, data)).join('');
+            }
+            els.sidebarTree.innerHTML = sidebarHTML;
+
+            if (db.criteria.filter(c => c.categoryId === state.category).length === 0) {
+                renderEmptyState('Welcome to NAAC Digital Manual', 'Get started by adding your first Criteria using the button in the sidebar.', 'layers');
+            } else if (state.selectedKI === 'dashboard') {
+                renderDashboardView(data);
+            } else if (!state.selectedKI) {
+                renderEmptyState('No Key Indicator Selected', 'Please select a Key Indicator from the sidebar menu to view its metrics.', 'mouse-pointer-click');
+            } else {
+                const activeKI = data.keyIndicators.find(k => k.id === state.selectedKI);
+                if (activeKI) {
+                    const activeCr = data.criteria.find(c => c.id === activeKI.criteriaId);
+                    const rawMetricsForKI = data.rawMetrics.filter(m => m.kiId === activeKI.id);
+                    const filteredMetricsForKI = data.metrics.filter(m => m.kiId === activeKI.id);
+                    renderMainDetailView(activeCr, activeKI, filteredMetricsForKI, rawMetricsForKI);
+                } else {
+                    renderEmptyState('Item Filtered Out', 'The selected item is hidden by your current search/filter settings.', 'filterX');
+                }
+            }
+
+            lucide.createIcons();
+        }
+
+        window.toggleDashNode = function(contentId, iconId) {
+            const content = document.getElementById(contentId);
+            const icon = document.getElementById(iconId);
+            if (content && content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                if (icon) icon.classList.add('rotate-90');
+            } else if (content) {
+                content.classList.add('hidden');
+                if (icon) icon.classList.remove('rotate-90');
+            }
+        };
+
+        function renderDashboardView(data) {
+            const catName = db.categories.find(c => c.id === state.category).name;
+            const totalCr = data.criteria.length;
+            const totalKI = data.keyIndicators.length;
+            const totalMetrics = data.metrics.length;
+            const totalMarks = data.criteria.reduce((sum, cr) => sum + (cr.totalMarks || 0), 0);
+            
+            const qlmMetrics = data.metrics.filter(m => m.type === 'Qualitative');
+            const qnmMetrics = data.metrics.filter(m => m.type === 'Quantitative');
+            const qlmCount = qlmMetrics.length;
+            const qnmCount = qnmMetrics.length;
+            const qlmMarks = qlmMetrics.reduce((sum, m) => sum + m.marks, 0);
+            const qnmMarks = qnmMetrics.reduce((sum, m) => sum + m.marks, 0);
+            const qlmPercent = totalMarks ? Math.round((qlmMarks / totalMarks) * 100) : 0;
+            const qnmPercent = totalMarks ? Math.round((qnmMarks / totalMarks) * 100) : 0;
+
+            let hierarchyHTML = '';
+            if (data.criteria.length === 0) {
+                hierarchyHTML = '<div class="text-sm text-slate-400 italic text-center py-8">No data available</div>';
+            } else {
+                data.criteria.forEach(cr => {
+                    const crPct = totalMarks ? Math.round((cr.totalMarks / totalMarks) * 100) : 0;
+                    const crKIs = data.keyIndicators.filter(ki => ki.criteriaId === cr.id);
+                    
+                    const crKIsRaw = data.rawKIs.filter(ki => ki.criteriaId === cr.id);
+                    const sumKIMarks = crKIsRaw.reduce((sum, ki) => sum + ki.marks, 0);
+                    const crWarningBadge = sumKIMarks !== cr.totalMarks 
+                        ? `<span class="ml-2 inline-flex items-center gap-1 bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold px-1.5 py-0.5 rounded" title="Assigned KIs total ${sumKIMarks}, expected ${cr.totalMarks}"><i data-lucide="alert-triangle" class="w-3 h-3"></i>Mismatch (${sumKIMarks}/${cr.totalMarks})</span>` 
+                        : '';
+
+                    hierarchyHTML += `
+                        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4 shadow-sm no-print">
+                            <div class="p-5 hover:bg-slate-50 cursor-pointer flex flex-col group transition-colors" onclick="toggleDashNode('dash_content_${cr.id}', 'dash_icon_${cr.id}')">
+                                <div class="flex justify-between items-start mb-2 gap-4">
+                                    <div class="flex items-center gap-2 flex-1">
+                                        <i data-lucide="chevron-right" id="dash_icon_${cr.id}" class="w-5 h-5 text-slate-400 transition-transform"></i>
+                                        <span class="font-bold text-slate-800 text-sm">CR ${cr.number}: ${cr.name}</span>
+                                        ${crWarningBadge}
+                                    </div>
+                                    <div class="font-bold text-slate-900 text-sm shrink-0">${cr.totalMarks} <span class="text-slate-400 font-normal text-xs ml-0.5">(${crPct}%)</span></div>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-full h-1.5 ml-7" style="width: calc(100% - 1.75rem)">
+                                    <div class="bg-indigo-500 h-1.5 rounded-full group-hover:bg-indigo-600 transition-colors" style="width: ${crPct}%"></div>
+                                </div>
+                            </div>
+                            
+                            <div id="dash_content_${cr.id}" class="hidden border-t border-slate-100 bg-slate-50/50 p-4 space-y-4">
+                    `;
+
+                    if(crKIs.length === 0) hierarchyHTML += `<div class="text-xs text-slate-400 italic ml-7">No Key Indicators found.</div>`;
+
+                    crKIs.forEach(ki => {
+                        const kiPct = totalMarks ? Math.round((ki.marks / totalMarks) * 100) : 0;
+                        const kiMetrics = data.metrics.filter(m => m.kiId === ki.id);
+
+                        const kiMetricsRaw = data.rawMetrics.filter(m => m.kiId === ki.id);
+                        const sumMetricMarks = kiMetricsRaw.reduce((sum, m) => sum + m.marks, 0);
+                        const kiWarningBadge = sumMetricMarks !== ki.marks 
+                            ? `<span class="ml-2 inline-flex items-center gap-1 bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold px-1.5 py-0.5 rounded" title="Assigned Metrics total ${sumMetricMarks}, expected ${ki.marks}"><i data-lucide="alert-triangle" class="w-3 h-3"></i>Mismatch (${sumMetricMarks}/${ki.marks})</span>` 
+                            : '';
+
+                        hierarchyHTML += `
+                                <div class="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm ml-7">
+                                    <div class="p-4 hover:bg-slate-50 cursor-pointer flex flex-col group transition-colors" onclick="toggleDashNode('dash_content_${ki.id}', 'dash_icon_${ki.id}')">
+                                        <div class="flex justify-between items-start mb-2 gap-4">
+                                            <div class="flex items-center gap-2 flex-1">
+                                                <i data-lucide="chevron-right" id="dash_icon_${ki.id}" class="w-4 h-4 text-slate-400 transition-transform"></i>
+                                                <span class="font-semibold text-slate-700 text-sm">KI ${ki.number}: ${ki.name}</span>
+                                                ${kiWarningBadge}
+                                            </div>
+                                            <div class="font-bold text-slate-800 text-sm shrink-0">${ki.marks} <span class="text-slate-400 font-normal text-xs ml-0.5">(${kiPct}%)</span></div>
+                                        </div>
+                                        <div class="w-full bg-slate-100 rounded-full h-1.5 ml-6" style="width: calc(100% - 1.5rem)">
+                                            <div class="bg-indigo-400 h-1.5 rounded-full group-hover:bg-indigo-500 transition-colors" style="width: ${kiPct}%"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="dash_content_${ki.id}" class="hidden border-t border-slate-100 bg-slate-50 p-3 space-y-2">
+                        `;
+
+                        if(kiMetrics.length === 0) hierarchyHTML += `<div class="text-xs text-slate-400 italic ml-6">No Metrics found.</div>`;
+
+                        kiMetrics.forEach(m => {
+                            const mPct = totalMarks ? Math.round((m.marks / totalMarks) * 100) : 0;
+                            const badgeClass = m.type === 'Qualitative' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+                            const typeLabel = m.type === 'Qualitative' ? 'Qlm' : 'Qnm';
+                            const barColor = m.type === 'Qualitative' ? 'bg-purple-500' : 'bg-blue-500';
+
+                            hierarchyHTML += `
+                                        <div class="flex flex-col group ml-6 p-2.5 rounded-md hover:bg-white transition-colors border border-transparent hover:border-slate-200 hover:shadow-sm cursor-pointer" onclick="selectKI('${ki.id}')">
+                                            <div class="flex justify-between items-start mb-2 gap-4">
+                                                <div class="flex items-start gap-2">
+                                                    <span class="text-[10px] mt-0.5 px-1.5 py-0.5 rounded font-bold ${badgeClass} shrink-0">${typeLabel}</span>
+                                                    <span class="font-medium text-slate-600 text-xs sm:text-sm leading-snug">${m.number}: ${m.name}</span>
+                                                </div>
+                                                <div class="font-bold text-slate-700 text-sm shrink-0">${m.marks} <span class="text-slate-400 font-normal text-xs ml-0.5">(${mPct}%)</span></div>
+                                            </div>
+                                            <div class="w-full bg-slate-200 rounded-full h-1.5 ml-9" style="width: calc(100% - 2.25rem)">
+                                                <div class="${barColor} h-1.5 rounded-full opacity-80 group-hover:opacity-100 transition-all" style="width: ${mPct}%"></div>
+                                            </div>
+                                        </div>
+                            `;
+                        });
+
+                        hierarchyHTML += `
+                                    </div>
+                                </div>
+                        `;
+                    });
+
+                    hierarchyHTML += `
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            els.mainContent.innerHTML = `
+                <div class="mb-2">
+                    <h1 class="text-3xl font-bold text-slate-900">${catName} Overview</h1>
+                    <p class="text-slate-500 mt-1">Detailed weightage summaries and breakdown of marks.</p>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex items-center gap-3 mb-2 text-blue-600"><i data-lucide="layers" class="w-5 h-5"></i><span class="font-semibold text-sm">Criteria</span></div>
+                        <div class="text-3xl font-bold text-slate-800">${totalCr}</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex items-center gap-3 mb-2 text-amber-600"><i data-lucide="key" class="w-5 h-5"></i><span class="font-semibold text-sm">Key Indicators</span></div>
+                        <div class="text-3xl font-bold text-slate-800">${totalKI}</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex items-center gap-3 mb-2 text-emerald-600"><i data-lucide="list-checks" class="w-5 h-5"></i><span class="font-semibold text-sm">Total Metrics</span></div>
+                        <div class="text-3xl font-bold text-slate-800">${totalMetrics}</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 border-b-4 border-b-indigo-500">
+                        <div class="flex items-center gap-3 mb-2 text-indigo-600"><i data-lucide="award" class="w-5 h-5"></i><span class="font-semibold text-sm">Total Marks</span></div>
+                        <div class="text-3xl font-bold text-slate-800">${totalMarks}</div>
+                    </div>
+                </div>
+
+                <!-- Weightage Layout Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-6 items-start">
+                    
+                    <!-- 1. Qlm vs Qnm Breakdown (Left Column) -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col lg:sticky lg:top-6">
+                        <div class="p-6 border-b border-slate-50 shrink-0">
+                            <h3 class="text-base font-bold text-slate-800">Metrics Breakdown</h3>
+                        </div>
+                        <div class="flex-1 p-6 flex flex-col justify-center gap-10">
+                            <div>
+                                <div class="flex justify-between items-end mb-2.5">
+                                    <div><span class="font-bold text-purple-600 text-sm">Qualitative (Qlm)</span><span class="text-xs text-slate-400 ml-2 font-medium">${qlmCount} metrics</span></div>
+                                    <div class="font-bold text-slate-800 text-sm">${qlmMarks} Marks</div>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-full h-2">
+                                    <div class="bg-purple-500 h-2 rounded-full" style="width: ${qlmPercent}%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-end mb-2.5">
+                                    <div><span class="font-bold text-blue-600 text-sm">Quantitative (Qnm)</span><span class="text-xs text-slate-400 ml-2 font-medium">${qnmCount} metrics</span></div>
+                                    <div class="font-bold text-slate-800 text-sm">${qnmMarks} Marks</div>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-full h-2">
+                                    <div class="bg-blue-500 h-2 rounded-full" style="width: ${qnmPercent}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Hierarchical Collapsible Summary (Right Columns) -->
+                    <div class="lg:col-span-2 flex flex-col">
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden no-print">
+                            <div class="p-6 border-b border-slate-100 bg-slate-50/30">
+                                <h3 class="text-base font-bold text-slate-800">Hierarchical Weightage Summary</h3>
+                                <p class="text-xs text-slate-500 mt-1">Click to expand Criteria and Key Indicators to view specific metric weightages.</p>
+                            </div>
+                            <div class="p-6 bg-slate-50/50">
+                                ${hierarchyHTML}
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            `;
+        }
+
+        function renderSidebarCriteria(cr, data) {
+            const kis = data.keyIndicators.filter(ki => ki.criteriaId === cr.id);
+            const isExpanded = state.expandedCriteria.has(cr.id) || state.searchQuery.length > 0;
+            
+            const allKIsForCr = data.rawKIs.filter(ki => ki.criteriaId === cr.id);
+            const crSum = allKIsForCr.reduce((sum, ki) => sum + ki.marks, 0);
+            const crWarningIcon = crSum !== cr.totalMarks ? `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-red-500 mr-1" title="KI Marks Mismatch (${crSum}/${cr.totalMarks})"></i>` : '';
+
+            return `
+                <div class="mb-2 group/cr">
+                    <div class="flex items-center justify-between w-full px-2 py-1.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer" onclick="toggleCriteria('${cr.id}')">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}"></i>
+                            <span class="text-sm font-bold text-slate-800 truncate" title="${cr.name}">CR ${cr.number}</span>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            ${crWarningIcon}
+                            ${!state.isLocked ? `
+                            <div class="flex items-center gap-1 opacity-0 group-hover/cr:opacity-100 transition-opacity mr-1 no-print">
+                                <button onclick="event.stopPropagation(); openModal('ki', 'add', '${cr.id}')" class="text-slate-400 hover:text-indigo-600 p-1" title="Add KI"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
+                                <button onclick="event.stopPropagation(); openModal('criteria', 'edit', null, '${cr.id}')" class="text-slate-400 hover:text-indigo-600 p-1" title="Edit Criteria"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
+                                <button onclick="event.stopPropagation(); deleteEntity('criteria', '${cr.id}')" class="text-slate-400 hover:text-red-600 p-1" title="Delete Criteria"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                            </div>
+                            ` : ''}
+                            <span class="text-xs font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">${cr.totalMarks}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="${isExpanded ? 'block' : 'hidden'} mt-0.5 ml-3 pl-3 border-l border-slate-200 space-y-0.5">
+                        ${kis.length === 0 ? `<div class="text-xs text-slate-400 italic py-1 pl-2">No KIs added</div>` : ''}
+                        ${kis.map(ki => renderSidebarKI(ki, data)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSidebarKI(ki, data) {
+            const isSelected = state.selectedKI === ki.id;
+            
+            const allMetricsForKi = data.rawMetrics.filter(m => m.kiId === ki.id);
+            const kiSum = allMetricsForKi.reduce((sum, m) => sum + m.marks, 0);
+            const kiWarningIcon = kiSum !== ki.marks ? `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-red-500 mr-1" title="Metric Marks Mismatch (${kiSum}/${ki.marks})"></i>` : '';
+
+            return `
+                <div class="group/ki sidebar-item flex items-center justify-between px-2 py-1.5 text-sm rounded-md cursor-pointer border-l-2 border-transparent ${isSelected ? 'active' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}" 
+                     onclick="selectKI('${ki.id}')">
+                    <span class="truncate pr-2 flex items-center gap-1" title="${ki.name}">${kiWarningIcon}${ki.number} ${ki.name}</span>
+                    <div class="flex items-center gap-1 opacity-0 group-hover/ki:opacity-100 transition-opacity shrink-0 bg-inherit pl-1 no-print">
+                        ${!state.isLocked ? `
+                        <button onclick="event.stopPropagation(); openModal('ki', 'edit', null, '${ki.id}')" class="text-slate-400 hover:text-indigo-600 p-1"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
+                        <button onclick="event.stopPropagation(); deleteEntity('ki', '${ki.id}')" class="text-slate-400 hover:text-red-600 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderEmptyState(title, subtitle, iconName) {
+            els.mainContent.innerHTML = `
+                <div class="h-full flex flex-col items-center justify-center text-center py-20 px-4">
+                    <div class="bg-indigo-50 p-4 rounded-full mb-4 text-indigo-500">
+                        <i data-lucide="${iconName}" class="w-12 h-12"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-900 mb-2">${title}</h2>
+                    <p class="text-slate-500 max-w-md">${subtitle}</p>
+                </div>
+            `;
+        }
+
+        function renderMainDetailView(cr, ki, filteredMetrics, rawMetrics) {
+            const totalMetrics = filteredMetrics.length;
+            const qlmCount = filteredMetrics.filter(m => m.type === 'Qualitative').length;
+            const qnmCount = filteredMetrics.filter(m => m.type === 'Quantitative').length;
+            
+            const totalMetricMarks = rawMetrics.reduce((sum, m) => sum + m.marks, 0);
+            let validationBanner = '';
+            
+            if (totalMetricMarks !== ki.marks) {
+                validationBanner = `
+                    <div class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 text-red-800 shadow-sm no-print">
+                        <i data-lucide="alert-circle" class="w-5 h-5 shrink-0 mt-0.5 text-red-600"></i>
+                        <div>
+                            <h4 class="font-bold text-sm text-red-900">Marks Mismatch Detected</h4>
+                            <p class="text-xs mt-1 text-red-700">The total marks allocated to metrics in this Key Indicator is <strong>${totalMetricMarks}</strong>, but the Key Indicator requires exactly <strong>${ki.marks}</strong> marks. Please add or edit metrics to resolve this discrepancy.</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            els.mainContent.innerHTML = `
+                <div class="flex items-center gap-2 text-sm text-slate-500 font-medium mb-4">
+                    <span>${db.categories.find(c=>c.id === state.category).name}</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                    <span class="truncate max-w-[200px]" title="${cr.name}">CR ${cr.number}: ${cr.name}</span>
+                </div>
+
+                ${validationBanner}
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row md:items-start justify-between gap-6 relative overflow-hidden mb-6">
+                    <div class="absolute top-0 left-0 w-1.5 h-full bg-amber-500"></div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="bg-amber-100 text-amber-800 text-sm font-bold px-2.5 py-1 rounded-md border border-amber-200">KI ${ki.number}</span>
+                            <span class="text-sm font-semibold text-slate-400">Total Marks: <span class="text-amber-600">${ki.marks}</span></span>
+                        </div>
+                        <h1 class="text-2xl font-bold text-slate-900 mb-1">${ki.name}</h1>
+                    </div>
+                    
+                    <div class="flex items-center gap-3 shrink-0 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <div class="text-center px-3 border-r border-slate-200">
+                            <div class="text-xl font-bold text-slate-800">${totalMetrics}</div>
+                            <div class="text-xs text-slate-500 uppercase tracking-wide">Metrics</div>
+                        </div>
+                        <div class="text-center px-3 border-r border-slate-200">
+                            <div class="text-xl font-bold text-purple-600">${qlmCount}</div>
+                            <div class="text-xs text-slate-500 uppercase tracking-wide">Qlm</div>
+                        </div>
+                        <div class="text-center px-3">
+                            <div class="text-xl font-bold text-blue-600">${qnmCount}</div>
+                            <div class="text-xs text-slate-500 uppercase tracking-wide">Qnm</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                        <h2 class="text-lg font-bold text-slate-800">Assigned Metrics</h2>
+                        ${!state.isLocked ? `
+                        <button onclick="openModal('metric', 'add', '${ki.id}')" class="bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors no-print">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i> Add Metric
+                        </button>
+                        ` : ''}
+                    </div>
+                    
+                    ${filteredMetrics.length === 0 ? `
+                        <div class="p-12 text-center">
+                            <i data-lucide="layout-list" class="mx-auto h-10 w-10 text-slate-300 mb-3"></i>
+                            <h3 class="text-base font-medium text-slate-900">No metrics found</h3>
+                            <p class="text-sm text-slate-500 mt-1">Add your first metric to this Key Indicator.</p>
+                        </div>
+                    ` : `
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                <thead class="bg-slate-100/80">
+                                    <tr>
+                                        <th scope="col" class="px-5 py-3.5 text-left font-semibold text-slate-700 w-24">No.</th>
+                                        <th scope="col" class="px-5 py-3.5 text-left font-semibold text-slate-700">Metric Details</th>
+                                        <th scope="col" class="px-5 py-3.5 text-center font-semibold text-slate-700 w-28">Type</th>
+                                        <th scope="col" class="px-5 py-3.5 text-center font-semibold text-slate-700 w-24">Marks</th>
+                                        <th scope="col" class="px-5 py-3.5 text-center font-semibold text-slate-700 w-24 no-print">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    ${filteredMetrics.map(renderMetricRow).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
+        function renderMetricRow(m) {
+            const typeBadgeColor = m.type === 'Qualitative' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-blue-100 text-blue-700 border-blue-200';
+            
+            let displayName = m.name; 
+            let displayDesc = m.description;
+            let displayDocs = m.documentsRequired || '';
+            let displayInst = m.instructions || '';
+
+            if (state.searchQuery) {
+                const query = state.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
+                const regexText = new RegExp(`(${query})`, 'gi');
+                const regexHtml = new RegExp(`(${query})(?![^<]*>|[^<>]*<\/)`, 'gi');
+                
+                displayName = displayName.replace(regexText, '<mark class="bg-yellow-200 rounded px-1">$1</mark>');
+                displayDesc = displayDesc.replace(regexHtml, '<mark class="bg-yellow-200 rounded px-1">$1</mark>');
+                displayDocs = displayDocs.replace(regexHtml, '<mark class="bg-yellow-200 rounded px-1">$1</mark>');
+                displayInst = displayInst.replace(regexHtml, '<mark class="bg-yellow-200 rounded px-1">$1</mark>');
+            }
+
+            let docsHtml = m.documentsRequired ? `<div class="mt-3 bg-slate-50 p-3 rounded border border-slate-200"><span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2 flex items-center gap-1"><i data-lucide="folder-open" class="w-3 h-3"></i> Documents Required</span><div class="text-xs text-slate-700 quill-content">${displayDocs}</div></div>` : '';
+            let instHtml = m.instructions ? `<div class="mt-2 bg-blue-50/50 p-3 rounded border border-blue-100"><span class="text-[11px] font-bold text-blue-600 uppercase tracking-wider block mb-2 flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> Instructions</span><div class="text-xs text-slate-700 quill-content">${displayInst}</div></div>` : '';
+
+            return `
+                <tr class="hover:bg-slate-50/80 transition-colors group/row">
+                    <td class="px-5 py-4 text-slate-900 font-bold align-top whitespace-nowrap">${m.number}</td>
+                    <td class="px-5 py-4 text-slate-600 align-top">
+                        <p class="font-semibold text-slate-900 mb-2 leading-snug">${displayName}</p>
+                        <div class="text-xs text-slate-600 mb-2 border-l-2 border-slate-200 pl-3 quill-content">${displayDesc}</div>
+                        ${docsHtml}
+                        ${instHtml}
+                        ${m.benchmark ? `<div class="mt-3 inline-flex items-center gap-1.5 px-2 py-1 bg-slate-100 rounded text-xs text-slate-600 font-medium"><i data-lucide="target" class="w-3 h-3 text-emerald-600"></i> ${m.benchmark}</div>` : ''}
+                    </td>
+                    <td class="px-5 py-4 align-top text-center">
+                        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-bold border ${typeBadgeColor}">
+                            ${m.type === 'Qualitative' ? 'Qlm' : 'Qnm'}
+                        </span>
+                    </td>
+                    <td class="px-5 py-4 text-center align-top">
+                        <span class="font-bold text-indigo-600 text-base">${m.marks}</span>
+                    </td>
+                    <td class="px-5 py-4 align-top text-center whitespace-nowrap no-print">
+                        <div class="flex items-center justify-center gap-2 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                             <button onclick="openModal('metric', 'view', null, '${m.id}')" class="p-1.5 bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 rounded shadow-sm transition-colors" title="View Details"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                             ${!state.isLocked ? `
+                             <button onclick="openModal('metric', 'edit', null, '${m.id}')" class="p-1.5 bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 rounded shadow-sm transition-colors" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                             <button onclick="deleteEntity('metric', '${m.id}')" class="p-1.5 bg-white border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-300 rounded shadow-sm transition-colors" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                             ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        const generateId = (prefix) => `${prefix}_${Math.random().toString(36).substr(2, 9)}`;
+
+        function openModal(type, action, parentId = null, entityId = null) {
+            if (state.isLocked && action !== 'view') return alert('Dashboard is locked. Please unlock it to make changes.');
+            if (type === 'criteria' && !state.category) {
+                alert('Please add a Category first.');
+                return;
+            }
+            modalState = { isOpen: true, type, action, parentId, entityId };
+            const titlePrefix = action === 'add' ? 'Add New' : (action === 'edit' ? 'Edit' : 'View');
+            let typeName = type === 'category' ? 'Category' : (type === 'criteria' ? 'Criteria' : (type === 'ki' ? 'Key Indicator' : 'Metric'));
+            document.getElementById('modalTitle').textContent = `${titlePrefix} ${typeName}`;
+            
+            const modalBox = document.querySelector('#crudModal > div');
+            if (type === 'metric') {
+                modalBox.classList.remove('max-w-lg');
+                modalBox.classList.add('max-w-4xl');
+            } else {
+                modalBox.classList.remove('max-w-4xl');
+                modalBox.classList.add('max-w-lg');
+            }
+
+            const saveBtn = document.getElementById('saveModalBtn');
+            const cancelBtn = document.getElementById('cancelModalBtn');
+            if (action === 'view') {
+                if(saveBtn) saveBtn.classList.add('hidden');
+                if(cancelBtn) cancelBtn.textContent = 'Close';
+            } else {
+                if(saveBtn) saveBtn.classList.remove('hidden');
+                if(cancelBtn) cancelBtn.textContent = 'Cancel';
+            }
+
+            buildFormFields(type, action, entityId);
+            document.getElementById('crudModal').classList.remove('hidden');
+
+            if (type === 'metric' && action !== 'view') {
+                const quillOptions = {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            ['bold', 'italic', 'underline'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['link', 'clean']
+                        ]
+                    }
+                };
+                quillInstances.description = new Quill('#field_description', quillOptions);
+                quillInstances.documents = new Quill('#field_documents', quillOptions);
+                quillInstances.instructions = new Quill('#field_instructions', quillOptions);
+            } else {
+                quillInstances = {};
+            }
+            
+            lucide.createIcons();
+        }
+
+        function closeModal() {
+            modalState.isOpen = false;
+            document.getElementById('crudModal').classList.add('hidden');
+            document.getElementById('crudForm').reset();
+            
+            const saveBtn = document.getElementById('saveModalBtn');
+            const cancelBtn = document.getElementById('cancelModalBtn');
+            if(saveBtn) saveBtn.classList.remove('hidden');
+            if(cancelBtn) cancelBtn.textContent = 'Cancel';
+        }
+
+        function buildFormFields(type, action, entityId) {
+            let item = {};
+            if (action === 'edit' || action === 'view') {
+                if (type === 'category') item = db.categories.find(c => c.id === entityId) || {};
+                if (type === 'criteria') item = db.criteria.find(c => c.id === entityId) || {};
+                if (type === 'ki') item = db.keyIndicators.find(k => k.id === entityId) || {};
+                if (type === 'metric') item = db.metrics.find(m => m.id === entityId) || {};
+            }
+
+            let html = '';
+            
+            if (action === 'view' && type === 'metric') {
+                html = `
+                    <div class="space-y-6">
+                        <div class="flex items-center gap-3 mb-2 border-b border-slate-100 pb-4">
+                            <span class="bg-indigo-100 text-indigo-800 text-sm font-bold px-2.5 py-1 rounded-md border border-indigo-200">Metric ${item.number}</span>
+                            <span class="text-sm font-bold ${item.type === 'Qualitative' ? 'text-purple-600' : 'text-blue-600'} bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">${item.type === 'Qualitative' ? 'Qlm (Qualitative)' : 'Qnm (Quantitative)'}</span>
+                            <span class="text-sm font-bold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">${item.marks} Marks</span>
+                        </div>
+                        
+                        <h2 class="text-xl font-bold text-slate-900 leading-snug">${item.name}</h2>
+                        
+                        ${item.benchmark ? `<div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-200 text-sm font-medium mt-2"><i data-lucide="target" class="w-4 h-4"></i> Benchmark / Target: ${item.benchmark}</div>` : ''}
+
+                        <div class="space-y-6 mt-6">
+                            ${item.description ? `
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 mb-2 flex items-center gap-1.5"><i data-lucide="file-text" class="w-4 h-4 text-slate-400"></i> Detailed Description</h3>
+                                <div class="bg-white p-4 rounded-md border border-slate-200 text-slate-700 text-sm quill-content shadow-sm">${item.description}</div>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                ${item.documentsRequired ? `
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-800 mb-2 flex items-center gap-1.5"><i data-lucide="folder-open" class="w-4 h-4 text-slate-400"></i> Documents Required</h3>
+                                    <div class="bg-slate-50 p-4 rounded-md border border-slate-200 text-slate-700 text-sm quill-content">${item.documentsRequired}</div>
+                                </div>
+                                ` : ''}
+                                
+                                ${item.instructions ? `
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-800 mb-2 flex items-center gap-1.5"><i data-lucide="info" class="w-4 h-4 text-slate-400"></i> Instructions & Notes</h3>
+                                    <div class="bg-blue-50/50 p-4 rounded-md border border-blue-100 text-slate-700 text-sm quill-content">${item.instructions}</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'category') {
+                html = `
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Category Title</label>
+                        <input type="text" id="field_name" required value="${item.name || ''}" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border" placeholder="e.g. University">
+                    </div>
+                `;
+            } else if (type === 'criteria' || type === 'ki') {
+                html = `
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Number / Identifier</label>
+                        <input type="text" id="field_number" required value="${item.number || ''}" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border" placeholder="e.g. 1.1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Title</label>
+                        <textarea id="field_name" required rows="2" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border" placeholder="Enter title...">${item.name || ''}</textarea>
+                    </div>
+                `;
+                if (type === 'criteria') {
+                    html += `<div><label class="block text-sm font-bold text-slate-700 mb-1">Total Marks</label><input type="number" id="field_marks" required value="${item.totalMarks !== undefined ? item.totalMarks : ''}" class="w-full border-slate-300 rounded-md shadow-sm p-2 border" min="0"></div>`;
+                } else if (type === 'ki') {
+                    html += `<div><label class="block text-sm font-bold text-slate-700 mb-1">Marks</label><input type="number" id="field_marks" required value="${item.marks !== undefined ? item.marks : ''}" class="w-full border-slate-300 rounded-md shadow-sm p-2 border" min="0"></div>`;
+                }
+            } else if (type === 'metric') {
+                html += `
+                    <div class="space-y-6">
+                        <!-- Basic Info Section -->
+                        <div class="grid grid-cols-12 gap-5">
+                            <div class="col-span-12 sm:col-span-3">
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Metric No.</label>
+                                <input type="text" id="field_number" required value="${item.number || ''}" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border" placeholder="e.g. 1.1.1">
+                            </div>
+                            <div class="col-span-12 sm:col-span-9">
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Metric Title</label>
+                                <textarea id="field_name" required rows="2" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border" placeholder="Enter full metric statement...">${item.name || ''}</textarea>
+                            </div>
+                        </div>
+
+                        <!-- Configuration Section -->
+                        <div class="bg-indigo-50/60 p-5 rounded-lg border border-indigo-100 grid grid-cols-1 sm:grid-cols-3 gap-5 shadow-sm">
+                            <div>
+                                <label class="block text-sm font-bold text-indigo-900 mb-1.5 flex items-center gap-1.5"><i data-lucide="award" class="w-4 h-4 text-indigo-500"></i> Allocated Marks</label>
+                                <input type="number" id="field_marks" required value="${item.marks !== undefined ? item.marks : ''}" class="w-full border-indigo-200 rounded-md shadow-sm p-2 border focus:ring-indigo-500 focus:border-indigo-500" min="0">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-indigo-900 mb-1.5 flex items-center gap-1.5"><i data-lucide="bar-chart-2" class="w-4 h-4 text-indigo-500"></i> Metric Type</label>
+                                <select id="field_type" class="w-full border-indigo-200 rounded-md shadow-sm p-2 border bg-white focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="Qualitative" ${item.type === 'Qualitative' ? 'selected' : ''}>Qualitative (Qlm)</option>
+                                    <option value="Quantitative" ${item.type === 'Quantitative' ? 'selected' : ''}>Quantitative (Qnm)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-indigo-900 mb-1.5 flex items-center gap-1.5"><i data-lucide="target" class="w-4 h-4 text-indigo-500"></i> Benchmark / Target</label>
+                                <input type="text" id="field_benchmark" value="${item.benchmark || ''}" class="w-full border-indigo-200 rounded-md shadow-sm p-2 border focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g. 100% compliance">
+                            </div>
+                        </div>
+
+                        <!-- Rich Text Content Section -->
+                        <div class="space-y-5">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-1.5"><i data-lucide="file-text" class="w-4 h-4 text-slate-400"></i> Detailed Description</label>
+                                <div id="field_description" class="bg-white h-32 rounded-b-md">${item.description || ''}</div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-1.5"><i data-lucide="folder-open" class="w-4 h-4 text-slate-400"></i> Documents Required</label>
+                                    <div id="field_documents" class="bg-white h-32 rounded-b-md">${item.documentsRequired || ''}</div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-1.5"><i data-lucide="info" class="w-4 h-4 text-slate-400"></i> Instructions & Notes</label>
+                                    <div id="field_instructions" class="bg-white h-32 rounded-b-md">${item.instructions || ''}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            document.getElementById('dynamicFormFields').innerHTML = html;
+        }
+
+        function deleteEntity(type, id) {
+            if (state.isLocked) return alert('Dashboard is locked. Please unlock it to delete items.');
+            if (!confirm(`Are you sure you want to delete this ${type}?`)) return;
+            
+            if (type === 'category') {
+                db.categories = db.categories.filter(c => c.id !== id);
+                const crsToDelete = db.criteria.filter(c => c.categoryId === id).map(c => c.id);
+                const kisToDelete = db.keyIndicators.filter(ki => crsToDelete.includes(ki.criteriaId)).map(ki => ki.id);
+                db.criteria = db.criteria.filter(c => c.categoryId !== id);
+                db.keyIndicators = db.keyIndicators.filter(ki => !crsToDelete.includes(ki.criteriaId));
+                db.metrics = db.metrics.filter(m => !kisToDelete.includes(m.kiId));
+                
+                if (state.category === id) {
+                    state.category = db.categories.length > 0 ? db.categories[0].id : null;
+                    autoSelectFirstAvailable();
+                }
+                updateCategoryDropdown();
+            } else if (type === 'criteria') {
+                db.criteria = db.criteria.filter(c => c.id !== id);
+                const kisToDelete = db.keyIndicators.filter(ki => ki.criteriaId === id).map(ki => ki.id);
+                db.keyIndicators = db.keyIndicators.filter(ki => ki.criteriaId !== id);
+                db.metrics = db.metrics.filter(m => !kisToDelete.includes(m.kiId));
+                if(state.expandedCriteria.has(id)) state.expandedCriteria.delete(id);
+                if (kisToDelete.includes(state.selectedKI)) autoSelectFirstAvailable();
+            } else if (type === 'ki') {
+                db.keyIndicators = db.keyIndicators.filter(ki => ki.id !== id);
+                db.metrics = db.metrics.filter(m => m.kiId !== id);
+                if (state.selectedKI === id) autoSelectFirstAvailable();
+            } else if (type === 'metric') {
+                db.metrics = db.metrics.filter(m => m.id !== id);
+            }
+            
+            saveDatabase();
+            render();
+        }
+
+        document.getElementById('crudForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const numField = document.getElementById('field_number');
+            const num = numField ? numField.value : '';
+            const nameField = document.getElementById('field_name');
+            const name = nameField ? nameField.value : '';
+            const marksInput = document.getElementById('field_marks');
+            const marks = marksInput ? parseInt(marksInput.value, 10) : 0;
+            
+            let description = '';
+            let documentsRequired = '';
+            let instructions = '';
+            if (modalState.type === 'metric') {
+                description = quillInstances.description.root.innerHTML;
+                documentsRequired = quillInstances.documents.root.innerHTML;
+                instructions = quillInstances.instructions.root.innerHTML;
+                
+                if(description === '<p><br></p>') description = '';
+                if(documentsRequired === '<p><br></p>') documentsRequired = '';
+                if(instructions === '<p><br></p>') instructions = '';
+            }
+
+            if (modalState.action === 'add') {
+                if (modalState.type === 'category') {
+                    const newId = generateId('cat');
+                    db.categories.push({ id: newId, name: name });
+                    state.category = newId;
+                    updateCategoryDropdown();
+                    autoSelectFirstAvailable();
+                } else if (modalState.type === 'criteria') {
+                    const newId = generateId('cr');
+                    db.criteria.push({ id: newId, categoryId: state.category, number: num, name: name, totalMarks: marks });
+                    state.expandedCriteria.add(newId);
+                } else if (modalState.type === 'ki') {
+                    const newId = generateId('ki');
+                    db.keyIndicators.push({ id: newId, criteriaId: modalState.parentId, number: num, name: name, marks: marks });
+                    state.expandedCriteria.add(modalState.parentId);
+                    selectKI(newId);
+                } else if (modalState.type === 'metric') {
+                    db.metrics.push({ 
+                        id: generateId('m'), kiId: modalState.parentId, number: num, name: name, 
+                        description: description, 
+                        documentsRequired: documentsRequired,
+                        instructions: instructions,
+                        marks: marks, type: document.getElementById('field_type').value, 
+                        benchmark: document.getElementById('field_benchmark').value 
+                    });
+                }
+            } else if (modalState.action === 'edit') {
+                let item;
+                if (modalState.type === 'category') { 
+                    item = db.categories.find(c => c.id === modalState.entityId); 
+                    if (item) item.name = name; 
+                    updateCategoryDropdown(); 
+                } 
+                else if (modalState.type === 'criteria') { item = db.criteria.find(c => c.id === modalState.entityId); item.totalMarks = marks; } 
+                else if (modalState.type === 'ki') { item = db.keyIndicators.find(k => k.id === modalState.entityId); item.marks = marks; } 
+                else if (modalState.type === 'metric') { 
+                    item = db.metrics.find(m => m.id === modalState.entityId); 
+                    item.description = description; 
+                    item.documentsRequired = documentsRequired;
+                    item.instructions = instructions;
+                    item.marks = marks; 
+                    item.type = document.getElementById('field_type').value; 
+                    item.benchmark = document.getElementById('field_benchmark').value; 
+                }
+                if(item && modalState.type !== 'category') { item.number = num; item.name = name; }
+            }
+            
+            saveDatabase();
+            closeModal();
+            render();
+        });
+
+        function openSettingsModal() { document.getElementById('settingsModal').classList.remove('hidden'); }
+        function closeSettingsModal() { document.getElementById('settingsModal').classList.add('hidden'); }
+
+        function exportJSON() {
+            const dataStr = JSON.stringify(db, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "naac_data_backup.json";
+            link.click();
+            closeSettingsModal();
+        }
+
+        function triggerImport() { document.getElementById('importFileInput').click(); }
+
+        function stripHtmlForCsv(html) {
+            if (!html) return '';
+            let tmp = document.createElement("DIV");
+            tmp.innerHTML = html;
+            return tmp.textContent || tmp.innerText || "";
+        }
+
+        document.getElementById('importFileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const importedDb = JSON.parse(event.target.result);
+                    if (importedDb.categories && importedDb.criteria) {
+                        db = importedDb;
+                        state.category = db.categories.length > 0 ? db.categories[0].id : null;
+                        
+                        saveDatabase();
+
+                        updateCategoryDropdown();
+                        autoSelectFirstAvailable();
+                        render();
+                        closeSettingsModal();
+                    } else {
+                        alert('Invalid NAAC JSON file format.');
+                    }
+                } catch (err) {
+                    alert('Error reading file.');
+                }
+            };
+            reader.readAsText(file);
+            this.value = '';
+        });
+
+        function exportCSV() {
+            let csvContent = "Category,Criteria Number,Criteria Name,KI Number,KI Name,Metric Number,Metric Name,Description,Documents Required,Instructions,Type,Marks,Benchmark\n";
+            db.metrics.forEach(m => {
+                const ki = db.keyIndicators.find(k => k.id === m.kiId) || {};
+                const cr = db.criteria.find(c => c.id === ki.criteriaId) || {};
+                const cat = db.categories.find(c => c.id === cr.categoryId) || {};
+                const escape = (text) => `"${String(text || '').replace(/"/g, '""')}"`;
+                
+                const cleanDesc = stripHtmlForCsv(m.description);
+                const cleanDocs = stripHtmlForCsv(m.documentsRequired);
+                const cleanInst = stripHtmlForCsv(m.instructions);
+
+                const row = [cat.name, cr.number, cr.name, ki.number, ki.name, m.number, m.name, cleanDesc, cleanDocs, cleanInst, m.type, m.marks, m.benchmark].map(escape).join(",");
+                csvContent += row + "\n";
+            });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "naac_metrics_export.csv";
+            link.click();
+            closeSettingsModal();
+        }
+
+        function clearAllData() {
+            if (state.isLocked) return alert('Dashboard is locked. Please unlock it to delete data.');
+            if (confirm("WARNING: Are you sure you want to delete ALL data?")) {
+                db.categories = [];
+                db.criteria = [];
+                db.keyIndicators = [];
+                db.metrics = [];
+                state.category = null;
+                state.expandedCriteria.clear();
+                state.selectedKI = 'dashboard';
+                
+                saveDatabase();
+
+                updateCategoryDropdown();
+                render();
+                closeSettingsModal();
+            }
+        }
+
+        // --- Expose functions to window for HTML inline event handlers ---
+        window.toggleLock = toggleLock;
+        window.expandAll = expandAll;
+        window.collapseAll = collapseAll;
+        window.toggleCriteria = toggleCriteria;
+        window.selectKI = selectKI;
+        window.editCurrentCategory = editCurrentCategory;
+        window.deleteCurrentCategory = deleteCurrentCategory;
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.deleteEntity = deleteEntity;
+        window.openSettingsModal = openSettingsModal;
+        window.closeSettingsModal = closeSettingsModal;
+        window.exportJSON = exportJSON;
+        window.triggerImport = triggerImport;
+        window.exportCSV = exportCSV;
+        window.clearAllData = clearAllData;
+
+    </script>
+</body>
+</html>
